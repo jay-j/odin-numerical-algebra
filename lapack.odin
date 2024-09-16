@@ -61,7 +61,6 @@ foreign blas {
 }
 
 // NOTE: internally uses the temp allocator for work matrices. Allocates the result on the given allocator.
-// TODO: rewrite to use my Matrix type
 matrix_leastsquares :: proc(
 	matrix_a: Matrix,
 	matrix_b: Matrix,
@@ -135,14 +134,17 @@ test_3x3 :: proc(t: ^testing.T) {
 	//  3 6 9
 	// A := []f32{1, 2, 3, 4, 5, 6, 8, 8, 9}
 	A := alloc(3, 3) or_else panic("Couldn't allocate matrix.")
+	defer dealloc(A)
 	set_col(&A, 0, []f32{1, 2, 3})
 	set_col(&A, 1, []f32{4, 5, 6})
 	set_col(&A, 2, []f32{8, 8, 9})
 	// B := []f32{4, 2, 1}
 	B := alloc(3, 1) or_else panic("Couldn't allocate matrix.")
+	defer dealloc(B)
 	set_col(&B, 0, []f32{4, 2, 1})
 
 	x, err := matrix_leastsquares(A, B)
+	defer dealloc(x)
 	testing.expect_value(t, err, nil)
 	free_all(context.temp_allocator)
 
@@ -160,14 +162,17 @@ test_5x3 :: proc(t: ^testing.T) {
 	// 5 constraints
 	// A [5, 3] @ x [3 x 1] = B [5 x 1 ]
 	A := alloc(5, 3) or_else panic("Couldn't allocate matrix.")
+	defer dealloc(A)
 	set_col(&A, 0, []f32{5, 4, 3, 2, 1})
 	set_col(&A, 1, []f32{8, 9, 0, 4, 5})
 	set_col(&A, 2, []f32{2, 1, 9, 7, 5})
 
 	B := alloc(5, 1) or_else panic("Couldn't allocate matrix.")
+	defer dealloc(B)
 	set_col(&B, 0, []f32{8, 7, 6, -2, -3})
 
 	x, err := matrix_leastsquares(A, B)
+	defer dealloc(x)
 	testing.expect_value(t, err, nil)
 	free_all(context.temp_allocator)
 
@@ -229,11 +234,13 @@ svd_basic_test :: proc(t: ^testing.T) {
 	cols := 4
 
 	A := alloc(rows, cols) or_else panic("Couldn't allocate matrix.")
+	defer dealloc(A)
 	set_row(&A, 0, []f32{5, 2, 8, 4})
 	set_row(&A, 1, []f32{3, 3, 9, 5})
 	set_row(&A, 2, []f32{6, 5, 12, 9})
 
 	s, err := svd(A)
+	defer delete(s)
 	testing.expect_value(t, err, nil)
 	free_all(context.temp_allocator)
 
@@ -317,13 +324,16 @@ mul_mat_mat :: proc(a, b: Matrix, allocator := context.allocator) -> (c: Matrix,
 @(test)
 test_matmul :: proc(t: ^testing.T) {
 	a := alloc(10, 10) or_else panic("alloc failed")
+	defer dealloc(a)
 	b := alloc(10, 10) or_else panic("alloc failed")
+	defer dealloc(b)
 
 	rand.reset(1)
 	fill_random_range(&a, -1, 1)
 	fill_random_range(&b, -1, 1)
 
 	c, err := mul(a, b)
+	defer dealloc(c)
 	testing.expect_value(t, err, nil)
 
 	print(c, "AxB=C")

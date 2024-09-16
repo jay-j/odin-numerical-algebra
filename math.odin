@@ -46,6 +46,11 @@ alloc :: proc {
 }
 
 
+dealloc :: proc(m: Matrix) {
+	delete(m.data)
+}
+
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // Utilities
 // FEATURE: reshape? via storing & changing stride
@@ -182,12 +187,15 @@ test_mul_vec :: proc(t: ^testing.T) {
 	rand.reset(1)
 
 	A, _ := alloc(3, 3)
+	defer dealloc(A)
 	B, _ := alloc(3, 1)
+	defer dealloc(B)
 
 	fill_random_range(&A, -1, 1)
 	fill_random_range(&B, -1, 1)
 
 	C, err := mul(A, B)
+	defer dealloc(C)
 
 	testing.expect_value(t, err, nil)
 	testing.expect_value(t, C.rows, 3)
@@ -201,6 +209,7 @@ test_set_get :: proc(t: ^testing.T) {
 	rand.reset(2)
 
 	A, _ := alloc(9, 12)
+	defer dealloc(A)
 	fill_random_range(&A, -1, 1)
 
 	new_col := make([]f32, 9)
@@ -221,9 +230,11 @@ test_set_get :: proc(t: ^testing.T) {
 	print(A, "A")
 
 	mycol := get_col(&A, 4) or_else panic("Couldn't allocate")
+	defer delete(mycol)
 	testing.expect_value(t, len(mycol), 9)
 
 	myrow := get_row(&A, 2) or_else panic("Couldn't get row")
+	defer delete(myrow)
 	testing.expect_value(t, len(myrow), 12)
 }
 
@@ -232,6 +243,7 @@ test_set_get :: proc(t: ^testing.T) {
 test_linspace :: proc(t: ^testing.T) {
 
 	A, err := linspace(-5, 12, 32)
+	defer dealloc(A)
 	testing.expect_value(t, err, nil)
 	testing.expect_value(t, len(A.data), 32)
 

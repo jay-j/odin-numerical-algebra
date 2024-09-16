@@ -42,7 +42,9 @@ test_add :: proc(t: ^testing.T) {
 	rand.reset(0)
 
 	A, _ := alloc(3, 4)
+	defer dealloc(A)
 	B, _ := alloc(3, 4)
+	defer dealloc(B)
 
 	fill_random_range(&A, -1, 1, context.random_generator)
 	fill_random_range(&B, -1, 1, context.random_generator)
@@ -51,6 +53,7 @@ test_add :: proc(t: ^testing.T) {
 	set(&B, 2, 1, -100)
 
 	C, err := add(A, B)
+	defer dealloc(C)
 	testing.expect_value(t, err, nil)
 
 	testing.expect(t, C.data[5] < -90)

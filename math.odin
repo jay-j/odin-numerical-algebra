@@ -107,6 +107,30 @@ set_row :: proc(m: ^Matrix, row: int, value: []f32) -> (err: Matrix_Error) {
 	return nil
 }
 
+
+// Copy a matrix into a 2D chunk of a destination matrix
+set_submatrix :: proc(m: ^Matrix, row, col: int, submatrix: ^Matrix) -> (err: Matrix_Error) {
+	// Make sure the submatrix can fit
+	if row + submatrix.rows > m.rows {
+		return Out_of_Bounds{}
+	}
+	if col + submatrix.cols > m.cols {
+		return Out_of_Bounds{}
+	}
+
+	// ASSUME: Column-major matrix; copy over one column of the submatrix at a time
+	for c: int = 0; c < submatrix.cols; c += 1 {
+		col_dst := c + col
+		copy(
+			m.data[m.rows * col_dst + row:m.rows * col_dst + submatrix.rows + row],
+			submatrix.data[submatrix.rows * c:submatrix.rows * (c + 1)],
+		)
+	}
+
+	return nil
+}
+
+
 // TODO set columns/rows/sections to a given other Matrix?
 
 get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f32) {
@@ -249,4 +273,32 @@ test_linspace :: proc(t: ^testing.T) {
 
 	testing.expect_value(t, A.data[0], -5)
 	testing.expect_value(t, A.data[31], 12)
+}
+
+
+@(test)
+test_set_submatrix :: proc(t: ^testing.T) {
+	rand.reset(3)
+
+	A, _ := alloc(6, 8)
+	defer dealloc(A)
+	fill_random_range(&A, 100, 200)
+
+	B, _ := alloc(6, 8)
+	defer dealloc(B)
+	fill_random_range(&B, 1, 2)
+
+	C, _ := alloc(3, 4)
+	defer dealloc(C)
+	fill_random_range(&C, -2, -1)
+
+	set_submatrix(&A, 0, 0, &B)
+	set_submatrix(&A, 1, 1, &C)
+
+	testing.expect(t, get(&A, 0, 0) > 0)
+	testing.expect(t, get(&A, 1, 1) < 0)
+
+	for v in A.data {
+		testing.expect(t, v < 100)
+	}
 }

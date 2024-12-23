@@ -1,10 +1,13 @@
 package osqp
 // A set of bindings for OSQP
-// Release v0.6.3, Apache-2.0 license
+// Apache-2.0 license
+// e303d106e33c (2024-Dec-10)
 // from https://github.com/osqp/osqp
 
 when ODIN_OS == .Windows {
-	foreign import osqp "libosqp.dll.a"
+	// This source directory must contain osqp.lib and osqp.dll
+	// Your executable must be able to find osqp.dll
+	foreign import osqp "osqp.lib"
 } else {
 	// Linux
 	foreign import osqp "libosqp.so"
@@ -33,7 +36,11 @@ Settings :: struct {
 	/* Note: If this struct is updated, ensure update_settings is also updated */
 	device:                 Int, ///< device identifier; currently used for CUDA devices
 	linsys_solver:          osqp_linsys_solver_type, ///< linear system solver to use
+
+	// Control settings
+	allocate_solution:      Int, ///< boolean; allocate solution in OSQPSolver during osqp_setup
 	verbose:                Int, ///< boolean; write out progress
+	profiler_level:         Int, ///< integer; level of detail for profiler annotation
 	warm_starting:          Int, ///< boolean; warm start
 	scaling:                Int, ///< data scaling iterations; if 0, then disabled
 	polishing:              Int, ///< boolean; polish ADMM solution

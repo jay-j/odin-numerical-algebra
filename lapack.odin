@@ -1,9 +1,23 @@
 package numerical_algebra
-// import "core:fmt"
 import "core:log"
 import "core:math"
 import "core:math/rand"
 import "core:testing"
+
+
+when ODIN_OS == .Windows {
+	// For Windows link to a local copy of the lib/dll.
+	// Both BLAS and LAPACK are in libopenblas, use two imports to match the foreign linking for Linux.
+	// Use the version with 32-bit index/integers also for Linux system package compatibility. 
+	foreign import lapack "libopenblas.lib"
+	foreign import blas "libopenblas.lib"
+	
+} else {
+	// Call the system copy of libraries rather than needing to bundle one with this library.. for now
+	foreign import lapack "system:lapacke"
+	foreign import blas "system:blas"
+}
+
 
 Lapack_Index :: int
 Lapack_Layout :: enum i32 {
@@ -28,9 +42,6 @@ Lapack_Side :: enum i32 {
 	Right = 142,
 }
 
-// Call the system copy of lapacke rather than needing to bundle one with this library.. for now
-@(require)
-foreign import lapack "system:lapacke"
 
 @(default_calling_convention = "c", link_prefix = "LAPACKE_")
 foreign lapack {
@@ -44,10 +55,6 @@ foreign lapack {
 
 }
 
-
-// Call the system blas library..
-@(require)
-foreign import blas "system:blas"
 
 @(default_calling_convention = "c", link_prefix = "cblas_")
 foreign blas {

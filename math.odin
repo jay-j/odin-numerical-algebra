@@ -4,6 +4,7 @@ import "core:math/rand"
 import "core:mem"
 import "core:slice"
 import "core:testing"
+import "core:log"
 
 // Column-major
 // TODO: allow matrix slicing? Output into a chunk of a bigger matrix rather than needing to copy. Would need to also record stride.
@@ -41,8 +42,14 @@ alloc_dims :: proc(rows, cols: int, allocator := context.allocator) -> (res: Mat
 	return res, nil
 }
 
+alloc_like :: proc(src: ^Matrix, allocator := context.allocator) -> (dst: Matrix, err: Matrix_Error) {
+	dst, err = alloc_dims(src.rows, src.cols, allocator)
+	return
+}
+
 alloc :: proc {
 	alloc_dims,
+	alloc_like,
 }
 
 
@@ -140,7 +147,8 @@ get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f32) {
 }
 
 
-get_col :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (values: []f32, err: Matrix_Error) {
+// Allocates a new slice to return the requested column of data.
+get_col_alloc :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (values: []f32, err: Matrix_Error) {
 	if col < 0 {
 		return nil, Out_of_Bounds{}
 	}
@@ -150,6 +158,27 @@ get_col :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (values
 	values = make([]f32, m.rows, allocator = allocator) or_return
 	copy(values[:], m.data[col * m.rows:(col + 1) * m.rows])
 	return values, nil
+}
+
+
+// Fill the provided slice with a column of the given matrix.
+// This procedure is intended for usage when you want the values on the stack.
+get_col_fill :: proc(m: ^Matrix, col: int, values: []f32) -> (err: Matrix_Error) {
+	if col < 0 {
+		return Out_of_Bounds{}
+	}
+	if col >= m.cols {
+		return Out_of_Bounds{}
+	}
+
+	copy(values[:], m.data[col * m.rows:(col + 1) * m.rows])
+	return nil
+}
+
+
+get_col :: proc {
+	get_col_alloc,
+	get_col_fill,
 }
 
 
@@ -165,6 +194,71 @@ get_row :: proc(m: ^Matrix, row: int, allocator := context.allocator) -> (values
 		values[col] = get(m, row, col)
 	}
 	return values, nil
+}
+
+
+// Rangtes use the slice convention of [min, max)
+get_submatrix :: proc(m: ^Matrix, row_range, col_range: [2]int, allocator := context.allocator) -> (s: Matrix, err: Matrix_Error) {
+	when ODIN_DEBUG {
+		if row_range[1] < row_range[0] {
+			return Matrix{}, Out_of_Bounds{}
+		}
+		if row_range[0] < 0 {
+			return Matrix{}, Out_of_Bounds{}
+		}
+		if row_range[1] > m.rows {
+			return Matrix{}, Out_of_Bounds{}
+		}
+		
+		if col_range[1] < col_range[0] {
+			return Matrix{}, Out_of_Bounds{}
+		}
+		if col_range[0] < 0 {
+			return Matrix{}, Out_of_Bounds{}
+		}
+		if col_range[1] > m.cols {
+			return Matrix{}, Out_of_Bounds{}
+		}
+	}
+
+	context.allocator = allocator
+
+	s, err = alloc_dims(row_range[1] - row_range[0], col_range[1] - col_range[0])
+	if err != nil {
+		return Matrix{}, err
+	}
+
+	for col_og, col_new in col_range[0]..<col_range[1] {
+		// Data fills entire columns of the output matrix
+		// Data may be sourced from partial column of the input matrix
+		copy(s.data[col_new*s.rows: (col_new+1)*s.rows], m.data[col_og*m.rows + row_range[0]:col_og*m.rows + row_range[1]])
+	}
+	return s, nil
+}
+
+
+@(test)
+test_submatrix :: proc(t: ^testing.T){
+	src := alloc_dims(4,5) or_else panic("Test alloc error")
+	defer dealloc(src)
+
+	src.data = []f32{1, 2, 3, 4,   5, 6, 7, 8,    9, 10, 11, 12,   13, 14, 15, 16,   17, 18, 19, 20}
+	// col:      0   1    2    3    4
+	//         -------------------------
+	// row: 0 |  1   5    9   13   17
+	//      1 |  2   6  *10   14*  18
+	//      2 |  3   7   11   15   19
+	//      3 |  4   8  *12   16*  20
+
+	dst := get_submatrix(&src, row_range={1, 4}, col_range={2, 4}) or_else panic("Test alloc error")
+	defer dealloc(dst)
+
+	testing.expect_value(t, get(&src, 1, 2), get(&dst, 0, 0))
+	testing.expect_value(t, get(&src, 3, 2), get(&dst, 2, 0))
+	testing.expect_value(t, get(&src, 1, 3), get(&dst, 0, 1))
+	testing.expect_value(t, get(&src, 3, 3), get(&dst, 2, 1))
+
+	// BUG: This test is reporting a leak and bad free.. how?!
 }
 
 

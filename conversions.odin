@@ -8,7 +8,6 @@ import "core:testing"
 //      to OSQP.CSC_Matrix (sparse, CSC)
 // Note this allocates the internal matrices.
 mat_to_osqp_csc :: proc(m: ^Matrix, allocator := context.allocator) -> (result: osqp.CscMatrix) {
-	context.logger.lowest_level = .Debug
 	context.allocator = allocator
 	result.nz = -1 // Constant for CSC
 	result.m_rows = osqp.Int(m.rows)

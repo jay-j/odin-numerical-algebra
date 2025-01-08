@@ -25,7 +25,7 @@ sub_mat_alloc :: proc(a, b: Matrix, allocator := context.allocator) -> (res: Mat
 	return res, nil
 }
 
-sub_scalar_alloc :: proc(a: Matrix, s: f32, allocator := context.allocator) -> (res: Matrix, err: Matrix_Error) {
+sub_scalar_alloc :: proc(a: Matrix, s: f64, allocator := context.allocator) -> (res: Matrix, err: Matrix_Error) {
 	res = alloc(a.rows, a.cols, allocator) or_return
 
 	for i in 0 ..< len(a.data) {

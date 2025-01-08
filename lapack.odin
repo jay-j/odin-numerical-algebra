@@ -46,12 +46,14 @@ Lapack_Side :: enum i32 {
 @(default_calling_convention = "c", link_prefix = "LAPACKE_")
 foreign lapack {
 	sgelss :: proc(layout: Lapack_Layout, M, N, nrhs: i32, A: [^]f32, lda: i32, B: [^]f32, ldb: i32, S: [^]f32, rcond: f32, rank: ^i32) -> (info: i32) ---
+	dgelss :: proc(layout: Lapack_Layout, M, N, nrhs: i32, A: [^]f64, lda: i32, B: [^]f64, ldb: i32, S: [^]f64, rcond: f64, rank: ^i32) -> (info: i32) ---
 
 	// A = U * SIGMA * transpose(V)
 	// jobu specifies options for computing all or part of the matrix U
 	// jobvt specifies options for computing all or part of the array VT
 	// CAUTION: modifies data at pointers given to it!
 	sgesvd :: proc(layout: Lapack_Layout, jobu, jobv: u8, M, N: i32, A: [^]f32, lda: i32, S: [^]f32, U: [^]f32, ldu: i32, VT: [^]f32, ldvt: i32, superb: [^]f32) -> (info: i32) ---
+	dgesvd :: proc(layout: Lapack_Layout, jobu, jobv: u8, M, N: i32, A: [^]f64, lda: i32, S: [^]f64, U: [^]f64, ldu: i32, VT: [^]f64, ldvt: i32, superb: [^]f64) -> (info: i32) ---
 
 }
 
@@ -64,10 +66,13 @@ foreign blas {
 
 	// C := alpha*A*B + beta*C
 	sgemm :: proc(layout: Lapack_Layout, transa, transb: Lapack_Transpose, a_rows, b_cols, a_cols: i32, alpha: f32 = 1.0, A: [^]f32, lda: i32, B: [^]f32, ldb: i32, beta: f32 = 0, C: [^]f32, ldc: i32) -> (info: i32) ---
+	dgemm :: proc(layout: Lapack_Layout, transa, transb: Lapack_Transpose, a_rows, b_cols, a_cols: i32, alpha: f64 = 1.0, A: [^]f64, lda: i32, B: [^]f64, ldb: i32, beta: f64 = 0, C: [^]f64, ldc: i32) -> (info: i32) ---
 
 }
 
-// NOTE: internally uses the temp allocator for work matrices. Allocates the result on the given allocator.
+
+// NOTE: Allocates the result on the given allocator.
+// NOTE: Internally uses the temp allocator for work matrices.
 matrix_leastsquares :: proc(
 	matrix_a: Matrix,
 	matrix_b: Matrix,
@@ -90,19 +95,19 @@ matrix_leastsquares :: proc(
 	lda: i32 = i32(matrix_a.rows)
 	ldb: i32 = i32(matrix_a.rows > matrix_a.cols ? matrix_a.rows : matrix_a.cols)
 
-	A := make([]f32, matrix_a.rows * matrix_a.cols, context.temp_allocator)
-	B := make([]f32, matrix_a.rows, context.temp_allocator)
+	A := make([]f64, matrix_a.rows * matrix_a.cols, context.temp_allocator)
+	B := make([]f64, matrix_a.rows, context.temp_allocator)
 
 	// TODO: will these fail if A size is reserved for work much larger than matrix_a?
 	// PERFORMANCE: at what point does the overhead of these copy operations become larger than the lapack speedup?
 	copy(A, matrix_a.data)
 	copy(B, matrix_b.data)
 
-	S := make([]f32, matrix_a.rows < matrix_a.cols ? matrix_a.rows : matrix_a.cols, context.temp_allocator)
-	rcond: f32 = -1
+	S := make([]f64, matrix_a.rows < matrix_a.cols ? matrix_a.rows : matrix_a.cols, context.temp_allocator)
+	rcond: f64 = -1
 	rank: i32
 
-	info := sgelss(
+	info := dgelss(
 		.Col_Major,
 		i32(matrix_a.rows),
 		i32(matrix_a.cols),
@@ -142,13 +147,13 @@ test_3x3 :: proc(t: ^testing.T) {
 	// A := []f32{1, 2, 3, 4, 5, 6, 8, 8, 9}
 	A := alloc(3, 3) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(A)
-	set_col(&A, 0, []f32{1, 2, 3})
-	set_col(&A, 1, []f32{4, 5, 6})
-	set_col(&A, 2, []f32{8, 8, 9})
+	set_col(&A, 0, []f64{1, 2, 3})
+	set_col(&A, 1, []f64{4, 5, 6})
+	set_col(&A, 2, []f64{8, 8, 9})
 	// B := []f32{4, 2, 1}
 	B := alloc(3, 1) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(B)
-	set_col(&B, 0, []f32{4, 2, 1})
+	set_col(&B, 0, []f64{4, 2, 1})
 
 	x, err := matrix_leastsquares(A, B)
 	defer dealloc(x)
@@ -170,13 +175,13 @@ test_5x3 :: proc(t: ^testing.T) {
 	// A [5, 3] @ x [3 x 1] = B [5 x 1 ]
 	A := alloc(5, 3) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(A)
-	set_col(&A, 0, []f32{5, 4, 3, 2, 1})
-	set_col(&A, 1, []f32{8, 9, 0, 4, 5})
-	set_col(&A, 2, []f32{2, 1, 9, 7, 5})
+	set_col(&A, 0, []f64{5, 4, 3, 2, 1})
+	set_col(&A, 1, []f64{8, 9, 0, 4, 5})
+	set_col(&A, 2, []f64{2, 1, 9, 7, 5})
 
 	B := alloc(5, 1) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(B)
-	set_col(&B, 0, []f32{8, 7, 6, -2, -3})
+	set_col(&B, 0, []f64{8, 7, 6, -2, -3})
 
 	x, err := matrix_leastsquares(A, B)
 	defer dealloc(x)
@@ -199,19 +204,19 @@ test_5x3 :: proc(t: ^testing.T) {
 // S  := 1D array of singular values on the diagonal
 // Vh := always form an orthonormal set
 // Allocates work on context.temp_allocator and return on the given allocator
-svd :: proc(A: Matrix, allocator := context.allocator) -> (result: []f32, err: Matrix_Error) {
+svd :: proc(A: Matrix, allocator := context.allocator) -> (result: []f64, err: Matrix_Error) {
 	rows := i32(A.rows)
 	cols := i32(A.cols)
 	context.allocator = allocator
-	matrix_a := make([]f32, cols * rows, allocator = context.temp_allocator) or_return
+	matrix_a := make([]f64, cols * rows, allocator = context.temp_allocator) or_return
 	copy(matrix_a[:], A.data[:])
 
-	matrix_s := make([]f32, min(cols, rows)) or_return
-	superb := make([]f32, cols * rows * 10, allocator = context.temp_allocator) or_return // TODO wtf this guess
+	matrix_s := make([]f64, min(cols, rows)) or_return
+	superb := make([]f64, cols * rows * 10, allocator = context.temp_allocator) or_return // TODO wtf this guess
 
 	// The U and VT interfaces are not interacted with for the 'N' modes.
 
-	info := sgesvd(
+	info := dgesvd(
 		.Col_Major, // NOTE: A must be column major!
 		jobu = 'N',
 		jobv = 'N',
@@ -242,16 +247,16 @@ svd_basic_test :: proc(t: ^testing.T) {
 
 	A := alloc(rows, cols) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(A)
-	set_row(&A, 0, []f32{5, 2, 8, 4})
-	set_row(&A, 1, []f32{3, 3, 9, 5})
-	set_row(&A, 2, []f32{6, 5, 12, 9})
+	set_row(&A, 0, []f64{5, 2, 8, 4})
+	set_row(&A, 1, []f64{3, 3, 9, 5})
+	set_row(&A, 2, []f64{6, 5, 12, 9})
 
 	s, err := svd(A)
 	defer delete(s)
 	testing.expect_value(t, err, nil)
 	free_all(context.temp_allocator)
 
-	approx :: proc(a, b: f32) -> (result: bool = false) {
+	approx :: proc(a, b: f64) -> (result: bool = false) {
 		if math.abs(a - b) < 1e-5 {
 			return true
 		}
@@ -304,7 +309,7 @@ mul_mat_mat :: proc(a, b: Matrix, allocator := context.allocator) -> (c: Matrix,
 
 	c = alloc(a.rows, b.cols, allocator) or_return
 
-	info := sgemm(
+	info := dgemm(
 		.Col_Major,
 		.No_Trans,
 		.No_Trans,

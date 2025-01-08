@@ -14,7 +14,7 @@ import "core:log"
 //  2   6  10
 //  3   7  11
 Matrix :: struct {
-	data: []f32, // pointer to data + length
+	data: []f64, // pointer to data + length
 	rows: int,
 	cols: int,
 }
@@ -36,7 +36,7 @@ Out_of_Bounds :: struct {}
 
 alloc_dims :: proc(rows, cols: int, allocator := context.allocator) -> (res: Matrix, err: Matrix_Error) {
 	capacity := rows * cols
-	res.data = make([]f32, capacity, allocator = allocator) or_return
+	res.data = make([]f64, capacity, allocator = allocator) or_return
 	res.rows = rows
 	res.cols = cols
 	return res, nil
@@ -66,14 +66,14 @@ fill_zero :: proc(m: ^Matrix) {
 	slice.zero(m.data)
 }
 
-fill_random_range :: proc(m: ^Matrix, low, high: f32, rng := context.random_generator) {
+fill_random_range :: proc(m: ^Matrix, low, high: f64, rng := context.random_generator) {
 	for i in 0 ..< len(m.data) {
-		m.data[i] = rand.float32_uniform(low, high, rng)
+		m.data[i] = rand.float64_uniform(low, high, rng)
 	}
 }
 
 // Set an individual element of the matrix
-set :: #force_inline proc(m: ^Matrix, row, col: int, value: f32) {
+set :: #force_inline proc(m: ^Matrix, row, col: int, value: f64) {
 	i := col * m.rows + row
 	m.data[i] = value
 }
@@ -81,7 +81,7 @@ set :: #force_inline proc(m: ^Matrix, row, col: int, value: f32) {
 
 // Set an column of the matrix to a slice
 // TODO what is a convenient pattern for checking the error result? How can this be squashed for optimized compiles?
-set_col :: proc(m: ^Matrix, col: int, value: []f32) -> (err: Matrix_Error) {
+set_col :: proc(m: ^Matrix, col: int, value: []f64) -> (err: Matrix_Error) {
 	if col >= m.cols {
 		return Out_of_Bounds{}
 	}
@@ -98,7 +98,7 @@ set_col :: proc(m: ^Matrix, col: int, value: []f32) -> (err: Matrix_Error) {
 }
 
 // Set a row of the matrix to a slice
-set_row :: proc(m: ^Matrix, row: int, value: []f32) -> (err: Matrix_Error) {
+set_row :: proc(m: ^Matrix, row: int, value: []f64) -> (err: Matrix_Error) {
 	if row >= m.rows {
 		return Out_of_Bounds{}
 	}
@@ -140,7 +140,7 @@ set_submatrix :: proc(m: ^Matrix, row, col: int, submatrix: ^Matrix) -> (err: Ma
 
 // TODO set columns/rows/sections to a given other Matrix?
 
-get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f32) {
+get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f64) {
 	i := col * m.rows + row
 	value = m.data[i]
 	return
@@ -148,14 +148,14 @@ get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f32) {
 
 
 // Allocates a new slice to return the requested column of data.
-get_col_alloc :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (values: []f32, err: Matrix_Error) {
+get_col_alloc :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
 	if col < 0 {
 		return nil, Out_of_Bounds{}
 	}
 	if col >= m.cols {
 		return nil, Out_of_Bounds{}
 	}
-	values = make([]f32, m.rows, allocator = allocator) or_return
+	values = make([]f64, m.rows, allocator = allocator) or_return
 	copy(values[:], m.data[col * m.rows:(col + 1) * m.rows])
 	return values, nil
 }
@@ -163,7 +163,7 @@ get_col_alloc :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (
 
 // Fill the provided slice with a column of the given matrix.
 // This procedure is intended for usage when you want the values on the stack.
-get_col_fill :: proc(m: ^Matrix, col: int, values: []f32) -> (err: Matrix_Error) {
+get_col_fill :: proc(m: ^Matrix, col: int, values: []f64) -> (err: Matrix_Error) {
 	if col < 0 {
 		return Out_of_Bounds{}
 	}
@@ -182,14 +182,14 @@ get_col :: proc {
 }
 
 
-get_row :: proc(m: ^Matrix, row: int, allocator := context.allocator) -> (values: []f32, err: Matrix_Error) {
+get_row :: proc(m: ^Matrix, row: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
 	if row < 0 {
 		return nil, Out_of_Bounds{}
 	}
 	if row >= m.rows {
 		return nil, Out_of_Bounds{}
 	}
-	values = make([]f32, m.cols, allocator = allocator) or_return
+	values = make([]f64, m.cols, allocator = allocator) or_return
 	for col in 0 ..< m.cols {
 		values[col] = get(m, row, col)
 	}
@@ -242,7 +242,7 @@ test_submatrix :: proc(t: ^testing.T){
 	src := alloc_dims(4,5) or_else panic("Test alloc error")
 	defer dealloc(src)
 
-	src.data = []f32{1, 2, 3, 4,   5, 6, 7, 8,    9, 10, 11, 12,   13, 14, 15, 16,   17, 18, 19, 20}
+	src.data = []f64{1, 2, 3, 4,   5, 6, 7, 8,    9, 10, 11, 12,   13, 14, 15, 16,   17, 18, 19, 20}
 	// col:      0   1    2    3    4
 	//         -------------------------
 	// row: 0 |  1   5    9   13   17
@@ -268,11 +268,11 @@ linspace :: proc {
 
 
 // Makes a linspaced column vector
-linspace_alloc :: proc(low, high: f32, N: int, allocator := context.allocator) -> (m: Matrix, err: Matrix_Error) {
-	dx: f32 = (high - low) / f32(N - 1)
+linspace_alloc :: proc(low, high: f64, N: int, allocator := context.allocator) -> (m: Matrix, err: Matrix_Error) {
+	dx: f64 = (high - low) / f64(N - 1)
 	m = alloc(N, 1, allocator) or_return
 	for i in 0 ..< N {
-		m.data[i] = dx * f32(i) + low
+		m.data[i] = dx * f64(i) + low
 	}
 	return m, nil
 }
@@ -330,11 +330,11 @@ test_set_get :: proc(t: ^testing.T) {
 	defer dealloc(A)
 	fill_random_range(&A, -1, 1)
 
-	new_col := make([]f32, 9)
+	new_col := make([]f64, 9)
 	defer delete(new_col)
 	slice.fill(new_col, 8)
 
-	new_row := make([]f32, 12)
+	new_row := make([]f64, 12)
 	defer delete(new_row)
 	slice.fill(new_row, 33)
 

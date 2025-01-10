@@ -140,7 +140,7 @@ set_submatrix :: proc(m: ^Matrix, row, col: int, submatrix: ^Matrix) -> (err: Ma
 
 // TODO set columns/rows/sections to a given other Matrix?
 
-get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f64) {
+get :: #force_inline proc(m: ^Matrix, #any_int row, col: int) -> (value: f64) {
 	i := col * m.rows + row
 	value = m.data[i]
 	return
@@ -148,7 +148,7 @@ get :: #force_inline proc(m: ^Matrix, row, col: int) -> (value: f64) {
 
 
 // Allocates a new slice to return the requested column of data.
-get_col_alloc :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
+get_col_alloc :: proc(m: ^Matrix, #any_int col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
 	if col < 0 {
 		return nil, Out_of_Bounds{}
 	}
@@ -163,7 +163,7 @@ get_col_alloc :: proc(m: ^Matrix, col: int, allocator := context.allocator) -> (
 
 // Fill the provided slice with a column of the given matrix.
 // This procedure is intended for usage when you want the values on the stack.
-get_col_fill :: proc(m: ^Matrix, col: int, values: []f64) -> (err: Matrix_Error) {
+get_col_fill :: proc(m: ^Matrix, #any_int col: int, values: []f64) -> (err: Matrix_Error) {
 	if col < 0 {
 		return Out_of_Bounds{}
 	}
@@ -182,7 +182,7 @@ get_col :: proc {
 }
 
 
-get_row :: proc(m: ^Matrix, row: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
+get_row :: proc(m: ^Matrix, #any_int row: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
 	if row < 0 {
 		return nil, Out_of_Bounds{}
 	}

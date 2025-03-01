@@ -146,6 +146,12 @@ get :: #force_inline proc(m: ^Matrix, #any_int row, col: int) -> (value: f64) {
 	return
 }
 
+// Get a multi-pointer to the raw matrix data. 
+raw :: #force_inline proc(m: ^Matrix) -> (data: [^]f64) {
+	data = raw_data(m.data[:])
+	return data
+}
+
 
 // Allocates a new slice to return the requested column of data.
 get_col_alloc :: proc(m: ^Matrix, #any_int col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {

@@ -59,18 +59,9 @@ dealloc :: proc(m: Matrix) {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// Utilities
+// Set Utilities
 // FEATURE: reshape? via storing & changing stride
 
-fill_zero :: proc(m: ^Matrix) {
-	slice.zero(m.data)
-}
-
-fill_random_range :: proc(m: ^Matrix, low, high: f64, rng := context.random_generator) {
-	for i in 0 ..< len(m.data) {
-		m.data[i] = rand.float64_uniform(low, high, rng)
-	}
-}
 
 // Set an individual element of the matrix
 set :: #force_inline proc(m: ^Matrix, row, col: int, value: f64) {
@@ -137,8 +128,8 @@ set_submatrix :: proc(m: ^Matrix, row, col: int, submatrix: ^Matrix) -> (err: Ma
 	return nil
 }
 
-
-// TODO set columns/rows/sections to a given other Matrix?
+/////////////////////////////////////////////////////////////////////////////////////////
+// Get Utilities
 
 get :: #force_inline proc(m: ^Matrix, #any_int row, col: int) -> (value: f64) {
 	i := col * m.rows + row
@@ -248,7 +239,7 @@ test_submatrix :: proc(t: ^testing.T){
 	src := alloc_dims(4,5) or_else panic("Test alloc error")
 	defer dealloc(src)
 
-	src.data = []f64{1, 2, 3, 4,   5, 6, 7, 8,    9, 10, 11, 12,   13, 14, 15, 16,   17, 18, 19, 20}
+	copy(src.data, []f64{1, 2, 3, 4,   5, 6, 7, 8,    9, 10, 11, 12,   13, 14, 15, 16,   17, 18, 19, 20})
 	// col:      0   1    2    3    4
 	//         -------------------------
 	// row: 0 |  1   5    9   13   17
@@ -268,12 +259,58 @@ test_submatrix :: proc(t: ^testing.T){
 }
 
 
-linspace :: proc {
-	linspace_alloc,
+// Allocate a new matrix which is the transpose of the original
+// PERFORMANCE: This becomes free and could allow in-pace operation if Matrix supports stride
+transpose :: proc(m: ^Matrix, allocator := context.allocator) -> (mt: Matrix, err: Matrix_Error) {
+	mt = alloc_dims(rows=m.cols, cols=m.rows, allocator=allocator) or_return
+	for col in 0 ..< m.cols {
+		for row in 0 ..< m.rows {
+			index_old := col * m.rows + row
+			index_new := row * mt.rows + col
+			mt.data[index_new] = m.data[index_old]
+		}
+	}
+	return mt, nil
 }
 
 
-// Makes a linspaced column vector
+@(test)
+test_transpose :: proc(t: ^testing.T) {
+	orig := alloc_dims(4, 3) or_else panic("Matrix allocation error")
+	defer dealloc(orig)
+	for i in 0 ..< orig.rows * orig.cols {
+		orig.data[i] = f64(i)
+	}
+
+	transp := transpose(&orig) or_else panic("Matrix allocation error")
+	defer dealloc(transp)
+	testing.expect_value(t, get(&transp, 1, 1), get(&orig, 1, 1))
+	testing.expect_value(t, get(&transp, 2, 1), get(&orig, 1, 2))
+	testing.expect_value(t, get(&transp, 2, 3), get(&orig, 3, 2))
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Fill Utilities
+
+fill_zero :: proc(m: ^Matrix) {
+	slice.zero(m.data)
+}
+
+fill_random_range :: proc(m: ^Matrix, low, high: f64, rng := context.random_generator) {
+	for i in 0 ..< len(m.data) {
+		m.data[i] = rand.float64_uniform(low, high, rng)
+	}
+}
+
+
+linspace :: proc {
+	linspace_alloc,
+	linspace_fill,
+}
+
+
+// Allocate to make a linspaced column vector
 linspace_alloc :: proc(low, high: f64, N: int, allocator := context.allocator) -> (m: Matrix, err: Matrix_Error) {
 	dx: f64 = (high - low) / f64(N - 1)
 	m = alloc(N, 1, allocator) or_return
@@ -283,9 +320,22 @@ linspace_alloc :: proc(low, high: f64, N: int, allocator := context.allocator) -
 	return m, nil
 }
 
-// transpose :: proc(m: Matrix, allocator := context.allocator) -> (mt: Matrix, err: Matrix_Error) {
-// TODO: if strides are available, this is essentially free
-// }
+
+// Fill a given Nx1 or 1xN matrix using linspace
+linspace_fill :: proc(m: ^Matrix, low, high: f64) -> (err: Matrix_Error) {
+	if m.rows > 1 && m.cols > 1 {
+		err = Dimension_Mismatch{}
+		return
+	}
+
+	N := max(m.rows, m.cols)
+	dx: f64 = (high - low) / f64(N - 1)
+	for i in 0 ..< N {
+		m.data[i] = dx * f64(i) + low
+	}
+	return nil
+}
+
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Printing
@@ -325,7 +375,7 @@ test_mul_vec :: proc(t: ^testing.T) {
 	testing.expect_value(t, C.rows, 3)
 	testing.expect_value(t, C.cols, 1)
 
-	print(C, "C")
+	// print(C, "C")
 }
 
 @(test)
@@ -351,7 +401,7 @@ test_set_get :: proc(t: ^testing.T) {
 	testing.expect_value(t, A.data[6], 33)
 	testing.expect_value(t, A.data[27], 8)
 
-	print(A, "A")
+	// print(A, "A")
 
 	mycol := get_col(&A, 4) or_else panic("Couldn't allocate")
 	defer delete(mycol)

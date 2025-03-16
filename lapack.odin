@@ -348,5 +348,5 @@ test_matmul :: proc(t: ^testing.T) {
 	defer dealloc(c)
 	testing.expect_value(t, err, nil)
 
-	print(c, "AxB=C")
+	// print(c, "AxB=C")
 }

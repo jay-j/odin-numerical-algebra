@@ -7,7 +7,7 @@ import "core:testing"
 // Convert numerical_algebra.Matrix (dense, column-major)
 //      to OSQP.CSC_Matrix (sparse, CSC)
 // Note this allocates the internal matrices.
-mat_to_osqp_csc :: proc(m: ^Matrix, allocator := context.allocator) -> (result: osqp.CscMatrix) {
+mat_to_osqp_csc :: proc(m: Matrix, allocator := context.allocator) -> (result: osqp.CscMatrix) {
 	context.allocator = allocator
 	result.nz = -1 // Constant for CSC
 	result.m_rows = osqp.Int(m.rows)
@@ -63,10 +63,10 @@ test_osqp_conversion :: proc(t: ^testing.T) {
 	defer dealloc(P_dense)
 
 
-	set(&P_dense, 0, 0, 4)
-	set(&P_dense, 0, 1, 1)
-	set(&P_dense, 1, 0, 1)
-	set(&P_dense, 1, 1, 2)
+	set(P_dense, 0, 0, 4)
+	set(P_dense, 0, 1, 1)
+	set(P_dense, 1, 0, 1)
+	set(P_dense, 1, 1, 2)
 
 	P_sparse := new(osqp.CscMatrix)
 	defer free(P_sparse)
@@ -80,7 +80,7 @@ test_osqp_conversion :: proc(t: ^testing.T) {
 		osqp.csc_set_data(P_sparse, n, n, P_nnz, raw_data(P_x[:]), raw_data(P_i[:]), raw_data(P_p[:]))
 	}
 
-	P_converted := mat_to_osqp_csc(&P_dense)
+	P_converted := mat_to_osqp_csc(P_dense)
 	defer free(P_converted.p)
 	defer free(P_converted.x)
 	defer free(P_converted.i)

@@ -15,8 +15,8 @@ main :: proc() {
 	rand.reset(1)
 
 	for _ in 0 ..< 10 {
-		na.fill_random_range(&A, -1, 1)
-		na.fill_random_range(&B, -1, 1)
+		na.fill_random_range(A, -1, 1)
+		na.fill_random_range(B, -1, 1)
 
 		timer: time.Stopwatch
 		time.stopwatch_start(&timer)

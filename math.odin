@@ -13,6 +13,7 @@ import "core:log"
 //  1   5   9
 //  2   6  10
 //  3   7  11
+// Matrix is a bundle containing a pointer to the data and have immutable size
 Matrix :: struct {
 	data: []f64, // pointer to data + length
 	rows: int,
@@ -42,7 +43,7 @@ alloc_dims :: proc(rows, cols: int, allocator := context.allocator) -> (res: Mat
 	return res, nil
 }
 
-alloc_like :: proc(src: ^Matrix, allocator := context.allocator) -> (dst: Matrix, err: Matrix_Error) {
+alloc_like :: proc(src: Matrix, allocator := context.allocator) -> (dst: Matrix, err: Matrix_Error) {
 	dst, err = alloc_dims(src.rows, src.cols, allocator)
 	return
 }
@@ -64,7 +65,7 @@ dealloc :: proc(m: Matrix) {
 
 
 // Set an individual element of the matrix
-set :: #force_inline proc(m: ^Matrix, row, col: int, value: f64) {
+set :: #force_inline proc(m: Matrix, row, col: int, value: f64) {
 	i := col * m.rows + row
 	m.data[i] = value
 }
@@ -72,7 +73,7 @@ set :: #force_inline proc(m: ^Matrix, row, col: int, value: f64) {
 
 // Set an column of the matrix to a slice
 // TODO what is a convenient pattern for checking the error result? How can this be squashed for optimized compiles?
-set_col :: proc(m: ^Matrix, col: int, value: []f64) -> (err: Matrix_Error) {
+set_col :: proc(m: Matrix, col: int, value: []f64) -> (err: Matrix_Error) {
 	if col >= m.cols {
 		return Out_of_Bounds{}
 	}
@@ -89,7 +90,7 @@ set_col :: proc(m: ^Matrix, col: int, value: []f64) -> (err: Matrix_Error) {
 }
 
 // Set a row of the matrix to a slice
-set_row :: proc(m: ^Matrix, row: int, value: []f64) -> (err: Matrix_Error) {
+set_row :: proc(m: Matrix, row: int, value: []f64) -> (err: Matrix_Error) {
 	if row >= m.rows {
 		return Out_of_Bounds{}
 	}
@@ -107,7 +108,7 @@ set_row :: proc(m: ^Matrix, row: int, value: []f64) -> (err: Matrix_Error) {
 
 
 // Copy a matrix into a 2D chunk of a destination matrix
-set_submatrix :: proc(m: ^Matrix, row, col: int, submatrix: ^Matrix) -> (err: Matrix_Error) {
+set_submatrix :: proc(m: Matrix, row, col: int, submatrix: Matrix) -> (err: Matrix_Error) {
 	// Make sure the submatrix can fit
 	if row + submatrix.rows > m.rows {
 		return Out_of_Bounds{}
@@ -131,21 +132,21 @@ set_submatrix :: proc(m: ^Matrix, row, col: int, submatrix: ^Matrix) -> (err: Ma
 /////////////////////////////////////////////////////////////////////////////////////////
 // Get Utilities
 
-get :: #force_inline proc(m: ^Matrix, #any_int row, col: int) -> (value: f64) {
+get :: #force_inline proc(m: Matrix, #any_int row, col: int) -> (value: f64) {
 	i := col * m.rows + row
 	value = m.data[i]
 	return
 }
 
 // Get a multi-pointer to the raw matrix data. 
-raw :: #force_inline proc(m: ^Matrix) -> (data: [^]f64) {
+raw :: #force_inline proc(m: Matrix) -> (data: [^]f64) {
 	data = raw_data(m.data[:])
 	return data
 }
 
 
 // Allocates a new slice to return the requested column of data.
-get_col_alloc :: proc(m: ^Matrix, #any_int col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
+get_col_alloc :: proc(m: Matrix, #any_int col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
 	if col < 0 {
 		return nil, Out_of_Bounds{}
 	}
@@ -160,7 +161,7 @@ get_col_alloc :: proc(m: ^Matrix, #any_int col: int, allocator := context.alloca
 
 // Fill the provided slice with a column of the given matrix.
 // This procedure is intended for usage when you want the values on the stack.
-get_col_fill :: proc(m: ^Matrix, #any_int col: int, values: []f64) -> (err: Matrix_Error) {
+get_col_fill :: proc(m: Matrix, #any_int col: int, values: []f64) -> (err: Matrix_Error) {
 	if col < 0 {
 		return Out_of_Bounds{}
 	}
@@ -179,7 +180,7 @@ get_col :: proc {
 }
 
 
-get_row :: proc(m: ^Matrix, #any_int row: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
+get_row :: proc(m: Matrix, #any_int row: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
 	if row < 0 {
 		return nil, Out_of_Bounds{}
 	}
@@ -195,7 +196,7 @@ get_row :: proc(m: ^Matrix, #any_int row: int, allocator := context.allocator) -
 
 
 // Rangtes use the slice convention of [min, max)
-get_submatrix :: proc(m: ^Matrix, row_range, col_range: [2]int, allocator := context.allocator) -> (s: Matrix, err: Matrix_Error) {
+get_submatrix :: proc(m: Matrix, row_range, col_range: [2]int, allocator := context.allocator) -> (s: Matrix, err: Matrix_Error) {
 	when ODIN_DEBUG {
 		if row_range[1] < row_range[0] {
 			return Matrix{}, Out_of_Bounds{}
@@ -247,13 +248,13 @@ test_submatrix :: proc(t: ^testing.T){
 	//      2 |  3   7   11   15   19
 	//      3 |  4   8  *12   16*  20
 
-	dst := get_submatrix(&src, row_range={1, 4}, col_range={2, 4}) or_else panic("Test alloc error")
+	dst := get_submatrix(src, row_range={1, 4}, col_range={2, 4}) or_else panic("Test alloc error")
 	defer dealloc(dst)
 
-	testing.expect_value(t, get(&src, 1, 2), get(&dst, 0, 0))
-	testing.expect_value(t, get(&src, 3, 2), get(&dst, 2, 0))
-	testing.expect_value(t, get(&src, 1, 3), get(&dst, 0, 1))
-	testing.expect_value(t, get(&src, 3, 3), get(&dst, 2, 1))
+	testing.expect_value(t, get(src, 1, 2), get(dst, 0, 0))
+	testing.expect_value(t, get(src, 3, 2), get(dst, 2, 0))
+	testing.expect_value(t, get(src, 1, 3), get(dst, 0, 1))
+	testing.expect_value(t, get(src, 3, 3), get(dst, 2, 1))
 
 	// BUG: This test is reporting a leak and bad free.. how?!
 }
@@ -261,7 +262,7 @@ test_submatrix :: proc(t: ^testing.T){
 
 // Allocate a new matrix which is the transpose of the original
 // PERFORMANCE: This becomes free and could allow in-pace operation if Matrix supports stride
-transpose :: proc(m: ^Matrix, allocator := context.allocator) -> (mt: Matrix, err: Matrix_Error) {
+transpose :: proc(m: Matrix, allocator := context.allocator) -> (mt: Matrix, err: Matrix_Error) {
 	mt = alloc_dims(rows=m.cols, cols=m.rows, allocator=allocator) or_return
 	for col in 0 ..< m.cols {
 		for row in 0 ..< m.rows {
@@ -282,22 +283,22 @@ test_transpose :: proc(t: ^testing.T) {
 		orig.data[i] = f64(i)
 	}
 
-	transp := transpose(&orig) or_else panic("Matrix allocation error")
+	transp := transpose(orig) or_else panic("Matrix allocation error")
 	defer dealloc(transp)
-	testing.expect_value(t, get(&transp, 1, 1), get(&orig, 1, 1))
-	testing.expect_value(t, get(&transp, 2, 1), get(&orig, 1, 2))
-	testing.expect_value(t, get(&transp, 2, 3), get(&orig, 3, 2))
+	testing.expect_value(t, get(transp, 1, 1), get(orig, 1, 1))
+	testing.expect_value(t, get(transp, 2, 1), get(orig, 1, 2))
+	testing.expect_value(t, get(transp, 2, 3), get(orig, 3, 2))
 }
 
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Fill Utilities
 
-fill_zero :: proc(m: ^Matrix) {
+fill_zero :: proc(m: Matrix) {
 	slice.zero(m.data)
 }
 
-fill_random_range :: proc(m: ^Matrix, low, high: f64, rng := context.random_generator) {
+fill_random_range :: proc(m: Matrix, low, high: f64, rng := context.random_generator) {
 	for i in 0 ..< len(m.data) {
 		m.data[i] = rand.float64_uniform(low, high, rng)
 	}
@@ -322,7 +323,7 @@ linspace_alloc :: proc(low, high: f64, N: int, allocator := context.allocator) -
 
 
 // Fill a given Nx1 or 1xN matrix using linspace
-linspace_fill :: proc(m: ^Matrix, low, high: f64) -> (err: Matrix_Error) {
+linspace_fill :: proc(m: Matrix, low, high: f64) -> (err: Matrix_Error) {
 	if m.rows > 1 && m.cols > 1 {
 		err = Dimension_Mismatch{}
 		return
@@ -336,6 +337,38 @@ linspace_fill :: proc(m: ^Matrix, low, high: f64) -> (err: Matrix_Error) {
 	return nil
 }
 
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Misc.
+
+apply_scalar_operation :: proc {
+	apply_scalar_operation_alloc,
+	apply_scalar_operation_fill,
+}
+
+
+// Apply scalar operation to each element in the matrix
+apply_scalar_operation_alloc :: proc(m: Matrix, f: proc(f64) -> f64, allocator := context.allocator) -> (out: Matrix, err: Matrix_Error) {
+	out = alloc_like(m, allocator) or_return
+	apply_scalar_operation_fill(out, m, f) or_return
+	return out, nil
+}
+
+
+// Apply scalar operation to each element in the matrix
+apply_scalar_operation_fill :: proc(out, m: Matrix, f: proc(f64) -> f64) -> (err: Matrix_Error) {
+	if out.rows != m.rows {
+		return Dimension_Mismatch{}
+	}
+	if out.cols != m.cols {
+		return Dimension_Mismatch{}
+	}
+	
+	for i in 0 ..< len(m.data) {
+		out.data[i] = f(m.data[i])
+	}
+	return nil
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Printing
@@ -365,8 +398,8 @@ test_mul_vec :: proc(t: ^testing.T) {
 	B, _ := alloc(3, 1)
 	defer dealloc(B)
 
-	fill_random_range(&A, -1, 1)
-	fill_random_range(&B, -1, 1)
+	fill_random_range(A, -1, 1)
+	fill_random_range(B, -1, 1)
 
 	C, err := mul(A, B)
 	defer dealloc(C)
@@ -384,7 +417,7 @@ test_set_get :: proc(t: ^testing.T) {
 
 	A, _ := alloc(9, 12)
 	defer dealloc(A)
-	fill_random_range(&A, -1, 1)
+	fill_random_range(A, -1, 1)
 
 	new_col := make([]f64, 9)
 	defer delete(new_col)
@@ -394,20 +427,20 @@ test_set_get :: proc(t: ^testing.T) {
 	defer delete(new_row)
 	slice.fill(new_row, 33)
 
-	set_col(&A, 3, new_col)
+	set_col(A, 3, new_col)
 
-	set_row(&A, 6, new_row)
+	set_row(A, 6, new_row)
 
 	testing.expect_value(t, A.data[6], 33)
 	testing.expect_value(t, A.data[27], 8)
 
 	// print(A, "A")
 
-	mycol := get_col(&A, 4) or_else panic("Couldn't allocate")
+	mycol := get_col(A, 4) or_else panic("Couldn't allocate")
 	defer delete(mycol)
 	testing.expect_value(t, len(mycol), 9)
 
-	myrow := get_row(&A, 2) or_else panic("Couldn't get row")
+	myrow := get_row(A, 2) or_else panic("Couldn't get row")
 	defer delete(myrow)
 	testing.expect_value(t, len(myrow), 12)
 }
@@ -432,21 +465,21 @@ test_set_submatrix :: proc(t: ^testing.T) {
 
 	A, _ := alloc(6, 8)
 	defer dealloc(A)
-	fill_random_range(&A, 100, 200)
+	fill_random_range(A, 100, 200)
 
 	B, _ := alloc(6, 8)
 	defer dealloc(B)
-	fill_random_range(&B, 1, 2)
+	fill_random_range(B, 1, 2)
 
 	C, _ := alloc(3, 4)
 	defer dealloc(C)
-	fill_random_range(&C, -2, -1)
+	fill_random_range(C, -2, -1)
 
-	set_submatrix(&A, 0, 0, &B)
-	set_submatrix(&A, 1, 1, &C)
+	set_submatrix(A, 0, 0, B)
+	set_submatrix(A, 1, 1, C)
 
-	testing.expect(t, get(&A, 0, 0) > 0)
-	testing.expect(t, get(&A, 1, 1) < 0)
+	testing.expect(t, get(A, 0, 0) > 0)
+	testing.expect(t, get(A, 1, 1) < 0)
 
 	for v in A.data {
 		testing.expect(t, v < 100)

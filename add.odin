@@ -93,11 +93,11 @@ test_add :: proc(t: ^testing.T) {
 	B, _ := alloc(3, 4)
 	defer dealloc(B)
 
-	fill_random_range(&A, -1, 1, context.random_generator)
-	fill_random_range(&B, -1, 1, context.random_generator)
+	fill_random_range(A, -1, 1, context.random_generator)
+	fill_random_range(B, -1, 1, context.random_generator)
 
-	set(&A, 0, 3, 100)
-	set(&B, 2, 1, -100)
+	set(A, 0, 3, 100)
+	set(B, 2, 1, -100)
 
 	C, err := add(A, B)
 	defer dealloc(C)

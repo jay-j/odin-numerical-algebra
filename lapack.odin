@@ -147,13 +147,13 @@ test_3x3 :: proc(t: ^testing.T) {
 	// A := []f32{1, 2, 3, 4, 5, 6, 8, 8, 9}
 	A := alloc(3, 3) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(A)
-	set_col(&A, 0, []f64{1, 2, 3})
-	set_col(&A, 1, []f64{4, 5, 6})
-	set_col(&A, 2, []f64{8, 8, 9})
+	set_col(A, 0, []f64{1, 2, 3})
+	set_col(A, 1, []f64{4, 5, 6})
+	set_col(A, 2, []f64{8, 8, 9})
 	// B := []f32{4, 2, 1}
 	B := alloc(3, 1) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(B)
-	set_col(&B, 0, []f64{4, 2, 1})
+	set_col(B, 0, []f64{4, 2, 1})
 
 	x, err := matrix_leastsquares(A, B)
 	defer dealloc(x)
@@ -175,13 +175,13 @@ test_5x3 :: proc(t: ^testing.T) {
 	// A [5, 3] @ x [3 x 1] = B [5 x 1 ]
 	A := alloc(5, 3) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(A)
-	set_col(&A, 0, []f64{5, 4, 3, 2, 1})
-	set_col(&A, 1, []f64{8, 9, 0, 4, 5})
-	set_col(&A, 2, []f64{2, 1, 9, 7, 5})
+	set_col(A, 0, []f64{5, 4, 3, 2, 1})
+	set_col(A, 1, []f64{8, 9, 0, 4, 5})
+	set_col(A, 2, []f64{2, 1, 9, 7, 5})
 
 	B := alloc(5, 1) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(B)
-	set_col(&B, 0, []f64{8, 7, 6, -2, -3})
+	set_col(B, 0, []f64{8, 7, 6, -2, -3})
 
 	x, err := matrix_leastsquares(A, B)
 	defer dealloc(x)
@@ -247,9 +247,9 @@ svd_basic_test :: proc(t: ^testing.T) {
 
 	A := alloc(rows, cols) or_else panic("Couldn't allocate matrix.")
 	defer dealloc(A)
-	set_row(&A, 0, []f64{5, 2, 8, 4})
-	set_row(&A, 1, []f64{3, 3, 9, 5})
-	set_row(&A, 2, []f64{6, 5, 12, 9})
+	set_row(A, 0, []f64{5, 2, 8, 4})
+	set_row(A, 1, []f64{3, 3, 9, 5})
+	set_row(A, 2, []f64{6, 5, 12, 9})
 
 	s, err := svd(A)
 	defer delete(s)
@@ -341,8 +341,8 @@ test_matmul :: proc(t: ^testing.T) {
 	defer dealloc(b)
 
 	rand.reset(1)
-	fill_random_range(&a, -1, 1)
-	fill_random_range(&b, -1, 1)
+	fill_random_range(a, -1, 1)
+	fill_random_range(b, -1, 1)
 
 	c, err := mul(a, b)
 	defer dealloc(c)

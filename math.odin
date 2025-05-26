@@ -294,6 +294,10 @@ test_transpose :: proc(t: ^testing.T) {
 /////////////////////////////////////////////////////////////////////////////////////////
 // Fill Utilities
 
+fill_value :: proc(m: Matrix, val: f64) {
+	slice.fill(m.data, val)
+}
+
 fill_zero :: proc(m: Matrix) {
 	slice.zero(m.data)
 }
@@ -337,6 +341,41 @@ linspace_fill :: proc(m: Matrix, low, high: f64) -> (err: Matrix_Error) {
 	return nil
 }
 
+
+identity :: proc {
+	identity_alloc,
+	identity_fill,
+}
+
+identity_alloc :: proc(dim: int, allocator := context.allocator) -> (m: Matrix, err: Matrix_Error) {
+	if dim < 1 {
+		return Matrix{}, Out_of_Bounds{}
+	}
+	m, err = alloc_dims(dim, dim, allocator)
+	if err != nil {
+		return Matrix{}, err
+	}
+
+	for i in 0 ..< dim {
+		set(m, i, i, 1)
+	}
+	return m, nil
+}
+
+
+// Turn a matrix into an identity matrix
+// If the input matrix is non-square, still fills in each [i,i] element
+identity_fill :: proc(m: Matrix) -> (err: Matrix_Error) {
+	if raw_data(m.data) == nil {
+		return Out_of_Bounds{}
+	}
+	fill_zero(m)
+	N := min(m.rows, m.cols)
+	for i in 0 ..< N {
+		set(m, i, i, 1)
+	}
+	return nil
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Misc.
@@ -484,4 +523,18 @@ test_set_submatrix :: proc(t: ^testing.T) {
 	for v in A.data {
 		testing.expect(t, v < 100)
 	}
+}
+
+@(test)
+test_identity :: proc(t: ^testing.T) {
+	m1, a1 := alloc(5, 5)
+	defer dealloc(m1)
+	e1 := identity_fill(m1)
+	testing.expect_value(t, a1, nil)
+	testing.expect_value(t, e1, nil)
+
+	m2, e2 := identity_alloc(5)
+	defer dealloc(m2)
+	testing.expect_value(t, e2, nil)
+
 }

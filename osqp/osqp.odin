@@ -1,7 +1,7 @@
 package osqp
 // A set of bindings for OSQP
 // Apache-2.0 license
-// e303d106e33c (2024-Dec-10)
+// v1.0.0 (236713ce) (2025-08-07)
 // from https://github.com/osqp/osqp
 
 when ODIN_OS == .Windows {
@@ -19,16 +19,33 @@ Float :: f64
 Int :: i64
 
 
-osqp_linsys_solver_type :: enum {
+osqp_linsys_solver_type :: enum i32 {
 	OSQP_UNKNOWN_SOLVER = 0, /* Start from 0 for unknown solver because we index an array*/
 	OSQP_DIRECT_SOLVER,
 	OSQP_INDIRECT_SOLVER,
 }
 
 
-osqp_precond_type :: enum {
+osqp_precond_type :: enum i32 {
 	OSQP_NO_PRECONDITIONER = 0, /* Don't use a preconditioner */
 	OSQP_DIAGONAL_PRECONDITIONER, /* Diagonal (Jacobi) preconditioner */
+}
+
+
+osqp_error_type :: enum i32 {
+	OSQP_NO_ERROR = 0,
+	OSQP_DATA_VALIDATION_ERROR = 1, /* Start errors from 1 */
+	OSQP_SETTINGS_VALIDATION_ERROR,
+	OSQP_LINSYS_SOLVER_INIT_ERROR,
+	OSQP_NONCVX_ERROR,
+	OSQP_MEM_ALLOC_ERROR,
+	OSQP_WORKSPACE_NOT_INIT_ERROR,
+	OSQP_ALGEBRA_LOAD_ERROR,
+	OSQP_FOPEN_ERROR,
+	OSQP_CODEGEN_DEFINES_ERROR,
+	OSQP_DATA_NOT_INITIALIZED,
+	OSQP_FUNC_NOT_IMPLEMENTED, /**< Function not implemented in this library */
+	OSQP_LAST_ERROR_PLACE, /* This must always be the last item in the enum */
 }
 
 
@@ -73,6 +90,7 @@ Settings :: struct {
 	eps_dual_inf:           Float, ///< dual infeasibility tolerance
 	scaled_termination:     Int, ///< boolean; use scaled termination criteria
 	check_termination:      Int, ///< integer, check termination interval; if 0, checking is disabled
+	check_dualgap:          Int, ///< Boolean; use duality gap termination criteria
 	time_limit:             Float, ///< maximum time to solve the problem (seconds)
 
 	// polishing parameters
@@ -101,8 +119,10 @@ Info :: struct {
 
 	// solution quality
 	obj_val:       Float, ///< Primal objective value
+	dual_obj_val:  Float, ///< Dual objective value
 	prim_res:      Float, ///< Norm of primal residual
 	dual_res:      Float, ///< Norm of dual residual
+	duality_gap:   Float, ///< Duality gap (primal obj - dual obj)
 
 	// algorithm information
 	iter:          Int, ///< Number of iterations taken
@@ -115,6 +135,10 @@ Info :: struct {
 	update_time:   Float, ///< Update phase time (seconds)
 	polish_time:   Float, ///< Polish phase time (seconds)
 	run_time:      Float, ///< Total solve time (seconds)
+
+	// Convergence information
+	primdual_int:  Float, ///< Integral of duality gap over time (primal-dual integral), requires profiling
+	rel_kkt_error: Float, ///< Relative KKT error
 }
 
 

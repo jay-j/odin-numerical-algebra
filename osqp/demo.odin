@@ -40,6 +40,10 @@ test_qp :: proc(t: ^testing.T) {
 
 	set_default_settings(settings)
 	settings.alpha = 1.0 // ADMM relaxation parameter (???)
+	settings.verbose = 0 // NOTE: Disable this to get some information, including the library version
+
+	// Check one of the default settings at the end of the struct to verify correct headers.
+	testing.expect_value(t, settings.delta, 1e-6)
 
 	setup_result := setup(&solver, P, raw_data(q[:]), A, raw_data(l[:]), raw_data(u[:]), m, n, settings)
 	log.debugf("setup result: %v\n", setup_result)

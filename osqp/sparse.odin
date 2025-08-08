@@ -8,6 +8,7 @@ CscMatrix :: struct {
 	x:      [^]Float, // the numerical values!
 	nzmax:  Int, // maximum number of entries
 	nz:     Int, // number of entries in triplet matrix, -1 for CSC
+	owned:  Int, // 1 if the p, i, and x pointers were allocated automatically, 0 if they are owned by the user
 }
 
 

@@ -1,10 +1,10 @@
 package numerical_algebra
 import "core:fmt"
+import "core:log"
 import "core:math/rand"
 import "core:mem"
 import "core:slice"
 import "core:testing"
-import "core:log"
 
 // Column-major
 // TODO: allow matrix slicing? Output into a chunk of a bigger matrix rather than needing to copy. Would need to also record stride.
@@ -146,7 +146,14 @@ raw :: #force_inline proc(m: Matrix) -> (data: [^]f64) {
 
 
 // Allocates a new slice to return the requested column of data.
-get_col_alloc :: proc(m: Matrix, #any_int col: int, allocator := context.allocator) -> (values: []f64, err: Matrix_Error) {
+get_col_alloc :: proc(
+	m: Matrix,
+	#any_int col: int,
+	allocator := context.allocator,
+) -> (
+	values: []f64,
+	err: Matrix_Error,
+) {
 	if col < 0 {
 		return nil, Out_of_Bounds{}
 	}
@@ -196,7 +203,14 @@ get_row :: proc(m: Matrix, #any_int row: int, allocator := context.allocator) ->
 
 
 // Rangtes use the slice convention of [min, max)
-get_submatrix :: proc(m: Matrix, row_range, col_range: [2]int, allocator := context.allocator) -> (s: Matrix, err: Matrix_Error) {
+get_submatrix :: proc(
+	m: Matrix,
+	row_range, col_range: [2]int,
+	allocator := context.allocator,
+) -> (
+	s: Matrix,
+	err: Matrix_Error,
+) {
 	when ODIN_DEBUG {
 		if row_range[1] < row_range[0] {
 			return Matrix{}, Out_of_Bounds{}
@@ -207,7 +221,7 @@ get_submatrix :: proc(m: Matrix, row_range, col_range: [2]int, allocator := cont
 		if row_range[1] > m.rows {
 			return Matrix{}, Out_of_Bounds{}
 		}
-		
+
 		if col_range[1] < col_range[0] {
 			return Matrix{}, Out_of_Bounds{}
 		}
@@ -226,21 +240,24 @@ get_submatrix :: proc(m: Matrix, row_range, col_range: [2]int, allocator := cont
 		return Matrix{}, err
 	}
 
-	for col_og, col_new in col_range[0]..<col_range[1] {
+	for col_og, col_new in col_range[0] ..< col_range[1] {
 		// Data fills entire columns of the output matrix
 		// Data may be sourced from partial column of the input matrix
-		copy(s.data[col_new*s.rows: (col_new+1)*s.rows], m.data[col_og*m.rows + row_range[0]:col_og*m.rows + row_range[1]])
+		copy(
+			s.data[col_new * s.rows:(col_new + 1) * s.rows],
+			m.data[col_og * m.rows + row_range[0]:col_og * m.rows + row_range[1]],
+		)
 	}
 	return s, nil
 }
 
 
 @(test)
-test_submatrix :: proc(t: ^testing.T){
-	src := alloc_dims(4,5) or_else panic("Test alloc error")
+test_submatrix :: proc(t: ^testing.T) {
+	src := alloc_dims(4, 5) or_else panic("Test alloc error")
 	defer dealloc(src)
 
-	copy(src.data, []f64{1, 2, 3, 4,   5, 6, 7, 8,    9, 10, 11, 12,   13, 14, 15, 16,   17, 18, 19, 20})
+	copy(src.data, []f64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
 	// col:      0   1    2    3    4
 	//         -------------------------
 	// row: 0 |  1   5    9   13   17
@@ -248,7 +265,7 @@ test_submatrix :: proc(t: ^testing.T){
 	//      2 |  3   7   11   15   19
 	//      3 |  4   8  *12   16*  20
 
-	dst := get_submatrix(src, row_range={1, 4}, col_range={2, 4}) or_else panic("Test alloc error")
+	dst := get_submatrix(src, row_range = {1, 4}, col_range = {2, 4}) or_else panic("Test alloc error")
 	defer dealloc(dst)
 
 	testing.expect_value(t, get(src, 1, 2), get(dst, 0, 0))
@@ -263,7 +280,7 @@ test_submatrix :: proc(t: ^testing.T){
 // Allocate a new matrix which is the transpose of the original
 // PERFORMANCE: This becomes free and could allow in-pace operation if Matrix supports stride
 transpose :: proc(m: Matrix, allocator := context.allocator) -> (mt: Matrix, err: Matrix_Error) {
-	mt = alloc_dims(rows=m.cols, cols=m.rows, allocator=allocator) or_return
+	mt = alloc_dims(rows = m.cols, cols = m.rows, allocator = allocator) or_return
 	for col in 0 ..< m.cols {
 		for row in 0 ..< m.rows {
 			index_old := col * m.rows + row
@@ -387,7 +404,14 @@ apply_scalar_operation :: proc {
 
 
 // Apply scalar operation to each element in the matrix
-apply_scalar_operation_alloc :: proc(m: Matrix, f: proc(f64) -> f64, allocator := context.allocator) -> (out: Matrix, err: Matrix_Error) {
+apply_scalar_operation_alloc :: proc(
+	m: Matrix,
+	f: proc(_: f64) -> f64,
+	allocator := context.allocator,
+) -> (
+	out: Matrix,
+	err: Matrix_Error,
+) {
 	out = alloc_like(m, allocator) or_return
 	apply_scalar_operation_fill(out, m, f) or_return
 	return out, nil
@@ -395,14 +419,14 @@ apply_scalar_operation_alloc :: proc(m: Matrix, f: proc(f64) -> f64, allocator :
 
 
 // Apply scalar operation to each element in the matrix
-apply_scalar_operation_fill :: proc(out, m: Matrix, f: proc(f64) -> f64) -> (err: Matrix_Error) {
+apply_scalar_operation_fill :: proc(out, m: Matrix, f: proc(_: f64) -> f64) -> (err: Matrix_Error) {
 	if out.rows != m.rows {
 		return Dimension_Mismatch{}
 	}
 	if out.cols != m.cols {
 		return Dimension_Mismatch{}
 	}
-	
+
 	for i in 0 ..< len(m.data) {
 		out.data[i] = f(m.data[i])
 	}
